@@ -25,6 +25,10 @@ window = sg.Window('Batch File Rename', default_element_size=(60, 1), grab_anywh
 
 event, values = window.Read()
 
+print(event, values)
+
+if event in (None, 'Cancel'):
+    raise Exception('Operation cancelled by user')
 
 findText = values['findText']
 ignoreCase = values['ignoreCase']
@@ -41,11 +45,17 @@ def validRegexString(regexString):
     except re.error:
         return False
 
-def getNewFileName(fileName):
-    if ignoreCase:
-        return re.sub(findText, replaceText, fileName, flags=re.IGNORECASE)
+def getNewFileName(fileName, method='REPLACE'):
+    if method == 'START':
+        return replaceText + fileName
+    if method == 'END':
+        name, ext = os.path.splitext(fileName)
+        return name + replaceText + ext
+    if method == 'REPLACE':
+        ignore = re.IGNORECASE if ignoreCase else 0
+        return re.sub(findText, replaceText, fileName, flags=ignore)
     else:
-        return re.sub(findText, replaceText, fileName)
+        raise ValueError('Unknown <method>')
 
 if regex:
     if not validRegexString(findText):
@@ -57,13 +67,15 @@ if recurse:
     for root, dirs, files in os.walk(directory):
         for f in files:
             new_f = getNewFileName(f)
-            os.rename(os.path.join(root, f), os.path.join(root, new_f))
-            renamedFiles += 1
+            if f != new_f:
+                os.rename(os.path.join(root, f), os.path.join(root, new_f))
+                renamedFiles += 1
 else:
     for f in os.listdir(directory):
         new_f = getNewFileName(f)
-        os.rename(os.path.join(directory, f), os.path.join(directory, new_f)) 
-        renamedFiles += 1
+        if f != new_f:
+            os.rename(os.path.join(directory, f), os.path.join(directory, new_f)) 
+            renamedFiles += 1
 
 layout = [      
     [sg.Text('Results: renamed {} files'.format(renamedFiles))],
