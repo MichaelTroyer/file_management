@@ -3,85 +3,112 @@ import re
 
 import PySimpleGUI as sg
 
-    
-layout = [      
 
-    [sg.Text('File name text to replace'),
-        sg.Checkbox('Ignore case', key='ignoreCase'),
-        sg.Checkbox('Regex', key='regex')],      
-    [sg.InputText(key='findText', tooltip='Use START | END for prefix | suffix')],
+class BatchRenameFiles(object):
 
-    [sg.Text('Replacement text')],
-    [sg.InputText(key='replaceText')],
-    
-    [sg.Text('Directory of files to be renamed'), 
-        sg.Checkbox('Recurse directory', key='recurse'),],
-    [sg.InputText(key='directory'), sg.FolderBrowse()],
+    def __init__(self):
+        self.event, self.inputs = self.getInputs()
+        self.findText = self.inputs['findText']
+        self.ignoreCase = self.inputs['ignoreCase']
+        self.regex= self.inputs['regex']
+        self.replaceText = self.inputs['replaceText']
+        self.directory = self.inputs['directory']
+        self.recurse = self.inputs['recurse']
+        self.prefix = self.inputs['prefix']
+        self.suffix = self.inputs['suffix']
 
-    [sg.Submit(), sg.Cancel()],
-    ] 
+        #TODO: screen prefix and suffix simulataneous input
+        if self.regex:
+            if not self.validRegexString(self.findText):
+                raise ValueError('Input is not a valid regular expression')
 
-window = sg.Window('Batch File Rename', default_element_size=(60, 1), grab_anywhere=False).Layout(layout)      
+        self.main()
 
-event, values = window.Read()
+    @staticmethod
+    def getInputs():
+        layout = [      
+            [sg.Text('File name text to replace', size=(25, 1)),
+                sg.Checkbox('Ignore case', key='ignoreCase'),
+                sg.Checkbox('Regex', key='regex')],  
+            [sg.InputText(key='findText')],
+            [sg.Text('Replacement text', size=(25, 1)),
+                sg.Checkbox('Prefix', key='prefix'),
+                sg.Checkbox('Suffix', key='suffix')],
+            [sg.InputText(key='replaceText')],
+            [sg.Text('Directory of files to be renamed', size=(25, 1)), 
+                sg.Checkbox('Recurse directory', key='recurse')],
+            [sg.InputText(key='directory'), sg.FolderBrowse()],
+            [sg.Submit(), sg.Cancel()],
+            ] 
 
-print(event, values)
+        window = sg.Window(
+            'Batch File Rename',
+            default_element_size=(60, 1),
+            grab_anywhere=False).Layout(layout)      
 
-if event in (None, 'Cancel'):
-    raise Exception('Operation cancelled by user')
+        event, values = window.Read()
+        if event in (None, 'Cancel'):
+            raise Exception('Operation cancelled by user')
 
-findText = values['findText']
-ignoreCase = values['ignoreCase']
-regex= values['regex']
-replaceText = values['replaceText']
-directory = values['directory']
-recurse = values['recurse']
+        return event, values
+
+    @staticmethod
+    def validRegexString(regexString):
+        try:
+            re.compile(regexString)
+            return True
+        except re.error:
+            return False
+
+    def getNewFileName(self, fileName):
+        if self.prefix:
+            return self.replaceText + fileName
+        elif self.suffix:
+            name, ext = os.path.splitext(fileName)
+            return name + self.replaceText + ext
+        else:
+            name, ext = os.path.splitext(fileName)
+            ignore = re.IGNORECASE if self.ignoreCase else 0
+            return re.sub(self.findText, self.replaceText, name, flags=ignore) + ext
+        
+    def renameFile(self, dir, fileName):
+        new_f = self.getNewFileName(fileName)
+        if fileName != new_f:
+            os.rename(os.path.join(dir, fileName), os.path.join(dir, new_f))
+            return new_f
+        return None
+
+    @staticmethod
+    def returnResults(results):
+        layout = [      
+            [sg.Text(
+                'Results: renamed {} files:\n{}'.format(
+                    len(results),
+                    '\n'.join(['[{}] -->\t[{}]'.format(k, v) for k, v in results.items()]
+                        )))],
+            [sg.Ok()],
+            ] 
+
+        window = sg.Window('Results', grab_anywhere=False).Layout(layout)      
+        event, values = window.Read()
+        return event, values
+
+    def main(self):
+
+        renamedFiles = {}
+
+        if self.recurse:
+            for root, dirs, files in os.walk(self.directory):
+                for f in files:
+                    res = self.renameFile(root, f)
+                    if res: renamedFiles[f] = res
+        else:
+            for f in os.listdir(self.directory):
+                res = self.renameFile(self.directory, f)
+                if res: renamedFiles[f] = res
+
+        self.returnResults(renamedFiles)
 
 
-def validRegexString(regexString):
-    try:
-        re.compile(regexString)
-        return True
-    except re.error:
-        return False
-
-def getNewFileName(fileName, method='REPLACE'):
-    if method == 'START':
-        return replaceText + fileName
-    if method == 'END':
-        name, ext = os.path.splitext(fileName)
-        return name + replaceText + ext
-    if method == 'REPLACE':
-        ignore = re.IGNORECASE if ignoreCase else 0
-        return re.sub(findText, replaceText, fileName, flags=ignore)
-    else:
-        raise ValueError('Unknown <method>')
-
-if regex:
-    if not validRegexString(findText):
-        raise ValueError('Input is not a valid regular expression')
-
-renamedFiles = 0
-
-if recurse:
-    for root, dirs, files in os.walk(directory):
-        for f in files:
-            new_f = getNewFileName(f)
-            if f != new_f:
-                os.rename(os.path.join(root, f), os.path.join(root, new_f))
-                renamedFiles += 1
-else:
-    for f in os.listdir(directory):
-        new_f = getNewFileName(f)
-        if f != new_f:
-            os.rename(os.path.join(directory, f), os.path.join(directory, new_f)) 
-            renamedFiles += 1
-
-layout = [      
-    [sg.Text('Results: renamed {} files'.format(renamedFiles))],
-    [sg.Ok()],
-    ] 
-
-window = sg.Window('Results', grab_anywhere=False).Layout(layout)      
-
-event, values = window.Read()
+if __name__ == '__main__':
+    results = BatchRenameFiles()
