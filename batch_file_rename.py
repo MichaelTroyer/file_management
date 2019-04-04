@@ -6,8 +6,12 @@ import PySimpleGUI as sg
 
 class BatchRenameFiles(object):
 
-    def __init__(self):
-        self.event, self.inputs = self.getInputs()
+    def __init__(self, testMode=False, testInputs=None):
+        if testMode: 
+            self.event, self.inputs = 'testing', testInputs
+        else:
+            self.event, self.inputs = self.getInputs()
+        # print(self.inputs)
         self.findText = self.inputs['findText']
         self.ignoreCase = self.inputs['ignoreCase']
         self.regex= self.inputs['regex']
@@ -22,7 +26,7 @@ class BatchRenameFiles(object):
             if not self.validRegexString(self.findText):
                 raise ValueError('Input is not a valid regular expression')
 
-        self.main()
+        self.renamedFiles = self.main()
 
     @staticmethod
     def getInputs():
@@ -36,7 +40,7 @@ class BatchRenameFiles(object):
                 sg.Checkbox('Suffix', key='suffix')],
             [sg.InputText(key='replaceText')],
             [sg.Text('Directory of files to be renamed', size=(25, 1)), 
-                sg.Checkbox('Recurse directory', key='recurse')],
+                sg.Checkbox('Recurse sub-directories', key='recurse')],
             [sg.InputText(key='directory'), sg.FolderBrowse()],
             [sg.Submit(), sg.Cancel()],
             ] 
@@ -62,6 +66,8 @@ class BatchRenameFiles(object):
 
     def getNewFileName(self, fileName):
         if self.prefix:
+            #TODO: only prefix/suffix on findText match
+            #TODO: leave blank to prefix/suffix all
             return self.replaceText + fileName
         elif self.suffix:
             name, ext = os.path.splitext(fileName)
@@ -109,6 +115,9 @@ class BatchRenameFiles(object):
 
         self.returnResults(renamedFiles)
 
+        return renamedFiles
 
 if __name__ == '__main__':
-    results = BatchRenameFiles()
+    renamed = BatchRenameFiles()
+
+    # print(renamed.renamedFiles)
