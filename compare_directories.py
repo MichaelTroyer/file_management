@@ -7,15 +7,7 @@ Created on Fri Dec 27 14:19:36 2019
 
 import os
 from filecmp import dircmp
- 
 
-#dir1 = r'.\Test\Test1.gdb'
-#dir2 = r'.\Test\Test3.gdb'
-
-dir1 = r'.\Test\Dir1'
-dir2 = r'.\Test\Dir2'
-
-dcmp = dircmp(dir1, dir2)
 
 def report_differences(dir1, dir2):
     
@@ -73,6 +65,3 @@ def report_differences(dir1, dir2):
 
     name = os.path.basename(dir1) + " | " + os.path.basename(dir2)
     dcmp_report(name, dircmp(dir1, dir2))
-
-    
-report_differences(dir1, dir2)
